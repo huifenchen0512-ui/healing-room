@@ -289,6 +289,16 @@ WOOD_CSS = """
         font-size: 0.95rem;
         color: #5D4E37;
     }
+
+    .submit-reminder {
+        background: #FFEBEE;
+        border-left: 4px solid #E53935;
+        padding: 0.75rem 1rem;
+        border-radius: 0 8px 8px 0;
+        margin: 0.5rem 0 1rem 0;
+        color: #C62828;
+        font-weight: 500;
+    }
 </style>
 """
 
@@ -536,26 +546,50 @@ def main():
                 payment_valid = False
                 payment_err = "請填寫 Line Pay 顯示名稱。"
 
-        can_submit = (
+        # 送出前檢查：姓名與電話
+        name_phone_ok = bool(customer_name.strip() and customer_phone.strip())
+
+        # 送出前檢查：庫存與產能
+        if has_options:
+            grape_r, walnut_r = get_remaining_quota_for_production(prod_date)
+            batch_full = grape_r == 0 and walnut_r == 0
+        else:
+            batch_full = False
+        stock_ok = (
             has_options
             and total_boxes >= 1
+            and not batch_full
             and qty_grape <= grape_rem
             and qty_walnut <= walnut_rem
+        )
+
+        can_submit = (
+            name_phone_ok
+            and stock_ok
             and time_ok
             and payment_valid
         )
 
-        if has_options:
-            grape_r, walnut_r = get_remaining_quota_for_production(prod_date)
-            if grape_r == 0 and walnut_r == 0:
-                can_submit = False
-                st.markdown(
-                    '<div class="full-quota-msg">⚠️ 該梯次已滿額，請選擇其他日期。</div>',
-                    unsafe_allow_html=True,
-                )
+        if has_options and batch_full:
+            st.markdown(
+                '<div class="full-quota-msg">⚠️ 該梯次已滿額，請選擇其他日期。</div>',
+                unsafe_allow_html=True,
+            )
 
         if not payment_valid:
             st.error(payment_err)
+
+        # 送出按鈕上方的紅色提醒
+        reminders = []
+        if not name_phone_ok:
+            reminders.append("請填寫姓名與電話")
+        if not stock_ok:
+            reminders.append("目前庫存不足或未設定產能")
+        if reminders:
+            st.markdown(
+                f'<div class="submit-reminder">⚠️ {" · ".join(reminders)}</div>',
+                unsafe_allow_html=True,
+            )
 
         submitted = st.form_submit_button("送出訂單", disabled=not can_submit)
 
