@@ -5,72 +5,47 @@ import time as pytime
 from datetime import datetime, timedelta, time
 from streamlit_gsheets import GSheetsConnection
 
-# ==================== 1. 進階視覺美化 CSS ====================
+# ==================== 1. 精緻視覺 CSS ====================
 st.set_page_config(page_title="癒室 - 手工甜點", layout="wide", page_icon="🥐")
 
 st.markdown("""
     <style>
-    /* 全域背景與字體 */
     .stApp { background-color: #FAF9F6; }
     h1, h2, h3 { color: #2D463E !important; font-family: 'Noto Serif TC', serif; }
-    
-    /* 自定義卡片容器 */
     .custom-card {
-        background-color: #ffffff;
-        padding: 2rem;
-        border-radius: 20px;
-        box-shadow: 0 4px 15px rgba(45, 70, 62, 0.08);
-        border: 1px solid #E9E4D9;
-        margin-bottom: 1.5rem;
+        background-color: #ffffff; padding: 2rem; border-radius: 20px;
+        box-shadow: 0 4px 15px rgba(45, 70, 62, 0.05); border: 1px solid #E9E4D9; margin-bottom: 1.5rem;
     }
-
-    /* 公告欄樣式升級 */
     .announcement-box {
         background: linear-gradient(135deg, #FDF5E6 0%, #FAF3E0 100%);
-        border-left: 6px solid #A67B5B;
-        padding: 1.5rem;
-        border-radius: 12px;
-        color: #5D4E37;
-        margin-bottom: 2rem;
+        border-left: 6px solid #A67B5B; padding: 1.2rem; border-radius: 12px; margin-bottom: 1.5rem;
     }
-
-    /* 按鈕樣式升級 */
     .stButton>button { 
-        background-color: #2D463E; color: #FAF9F6; 
-        width: 100%; border-radius: 12px; 
-        height: 3.8em; font-weight: 700; border: none; 
-        font-size: 1.1em; transition: all 0.4s ease;
-        box-shadow: 0 4px 10px rgba(45, 70, 62, 0.2);
+        background-color: #2D463E; color: #FAF9F6; width: 100%; border-radius: 12px; 
+        height: 3.8em; font-weight: 700; border: none; font-size: 1.1em; transition: 0.4s;
     }
-    .stButton>button:hover { 
-        background-color: #A67B5B; 
-        transform: translateY(-2px);
-        box-shadow: 0 6px 15px rgba(166, 123, 91, 0.3);
-    }
+    .stButton>button:hover { background-color: #A67B5B; transform: translateY(-2px); }
     
-    /* 庫存進度條顏色 */
-    .stProgress > div > div > div > div { background-color: #A67B5B; }
-
-    /* 塔羅翻牌動畫 */
+    /* 塔羅 3D 翻牌動畫 */
     @keyframes flipInY {
       from { transform: perspective(400px) rotateY(90deg); opacity: 0; }
       to { transform: perspective(400px) rotateY(0deg); opacity: 1; }
     }
     .tarot-container { display: flex; justify-content: center; margin-top: 2rem; }
     .tarot-card {
-        width: 280px; padding: 25px; border-radius: 18px; text-align: center; color: #2D463E;
-        box-shadow: 0 15px 35px rgba(0,0,0,0.1); border: 2px solid #A67B5B;
-        animation: flipInY 1.2s cubic-bezier(0.23, 1, 0.32, 1) forwards;
-        background: white;
+        width: 300px; padding: 25px; border-radius: 20px; text-align: center; color: #2D463E;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.1); border: 3px solid #A67B5B;
+        animation: flipInY 1.2s cubic-bezier(0.23, 1, 0.32, 1) forwards; background: white;
     }
-    .tarot-icon { font-size: 3.5rem; margin-bottom: 0.8rem; }
-    .card-sun { border-color: #EBC03F; background: #FFFDF5; }
-    .card-star { border-color: #7BB8D4; background: #F5FAFF; }
-    .card-world { border-color: #7FB069; background: #F7FFF5; }
+    .tarot-icon { font-size: 3.5rem; margin-bottom: 10px; }
+    .fire { border-color: #E57373; background: #FFF5F5; }
+    .water { border-color: #64B5F6; background: #F5F9FF; }
+    .air { border-color: #FFD54F; background: #FFFDF5; }
+    .earth { border-color: #81C784; background: #F7FFF7; }
     </style>
     """, unsafe_allow_html=True)
 
-# ==================== 2. 雲端連線與資料處理 ====================
+# ==================== 2. 雲端連線與資料庫 ====================
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def get_db_data():
@@ -79,130 +54,138 @@ def get_db_data():
     except:
         return pd.DataFrame(columns=["下單時間", "客戶姓名", "聯絡電話", "面交日期", "面交地點", "面交時間", "經典數量", "核桃數量", "總金額", "付款方式", "付款資訊"])
 
-# ==================== 3. 側邊欄：打雜小妹後台 ====================
+df_existing = get_db_data()
+
+# ==================== 3. 側邊欄：打雜小妹管理看板 (密碼鎖與調度) ====================
 with st.sidebar:
-    st.markdown("## 🍂 癒室管理")
-    admin_key = st.text_input("打雜小妹認證密碼", type="password")
+    st.markdown("## 🍂 癒室打雜小妹後台")
+    admin_key = st.text_input("輸入小妹通關密碼", type="password")
     
     if admin_key == "0512":
-        st.success("辛苦了！打雜小妹驗證通過 ✨")
+        st.success("驗證成功！打雜小妹辛苦了 ✨")
         st.markdown("---")
-        ratio_choice = st.radio("本日產能配置", ["核桃 3 / 葡萄 15", "核桃 6 / 葡萄 12"])
+        st.subheader("🥐 產能配置")
+        ratio_choice = st.radio("本日比例設定", ["核桃 3 / 葡萄 15", "核桃 6 / 葡萄 12"])
         ratios = {"核桃 3 / 葡萄 15": (15, 3), "核桃 6 / 葡萄 12": (12, 6)}
         max_g, max_w = ratios[ratio_choice]
         
-        date_input = st.text_area("製作日期清單", "2026-02-07\n2026-02-12\n2026-02-13")
+        st.subheader("📅 日期調整")
+        date_input = st.text_area("製作梯次 (YYYY-MM-DD)", "2026-02-07\n2026-02-12\n2026-02-13")
         prod_dates = [d.strip() for d in date_input.split('\n') if d.strip()]
         st.session_state['admin_config'] = {"max_g": max_g, "max_w": max_w, "prod_dates": prod_dates}
+        
+        st.markdown("---")
+        st.subheader("📋 營運看板")
+        view_d = st.selectbox("查看單日數據", prod_dates)
+        next_v = (datetime.strptime(view_d, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+        daily_q = df_existing[df_existing['面交日期'].isin([view_d, next_v])]
+        
+        if not daily_q.empty:
+            st.metric("總訂單數", f"{len(daily_q)} 筆")
+            st.write(f"🥐 葡萄總計：{pd.to_numeric(daily_q['經典數量']).sum()} 盒")
+            st.write(f"🥜 核桃總計：{pd.to_numeric(daily_q['核桃數量']).sum()} 盒")
+            st.download_button("📥 下載出貨清單", daily_q.to_csv(index=False).encode('utf-8-sig'), f"癒室出貨_{view_d}.csv")
     else:
-        st.caption("🔒 內部管理專用區")
-        config = st.session_state.get('admin_config', {"max_g": 15, "max_w": 3, "prod_dates": ["2026-02-07", "2026-02-12", "2026-02-13"]})
-        max_g, max_w, prod_dates = config['max_g'], config['max_w'], config['prod_dates']
+        st.caption("🔒 內部管理區 (密碼為生日)")
+        max_g, max_w, prod_dates = 15, 3, ["2026-02-07", "2026-02-12", "2026-02-13"]
 
-# ==================== 4. 主頁面：品牌形象與公告 ====================
+# ==================== 4. 主頁面：公告與下單 ====================
 st.title("🍂 癒室 · Healing Room")
 st.markdown("##### *Handmade Cinnamon Rolls & Soul Healing*")
 
 st.markdown(f"""
 <div class="announcement-box">
-    <strong style="font-size: 1.1em;">📢 打雜小妹 2 月接單快訊</strong><br>
-    <span style="font-size: 0.95em; line-height: 1.6;">
-    • <b>2/07 梯次：</b>2/7 三重 (19:00+) / 2/8 華視 (11:00-17:00)<br>
-    • <b>2/12 & 2/13 梯次：</b>僅開放三重自取 (19:00+)<br>
-    ※ 慢火熬煮焦糖，每盒兩顆入均一價 $190。
-    </span>
+    <strong>📢 2 月打雜小妹接單公告</strong><br>
+    <small>
+    • 2/7 梯次：2/7 三重 (19:00+) / 2/8 華視 (11:00-17:00)<br>
+    • 2/12 & 2/13 梯次：僅開放三重自取 (19:00+)<br>
+    ※ 均一價 $190 盒。
+    </small>
 </div>
 """, unsafe_allow_html=True)
 
-df_existing = get_db_data()
-
-# ==================== 5. 下單區卡片排版 ====================
 col1, col2 = st.columns([1, 1.2], gap="large")
 
 with col1:
     st.markdown('<div class="custom-card">', unsafe_allow_html=True)
-    st.image("548282507_1196129685655556_143484642680713398_n.jpg", 
-             caption="手工慢火熬煮，裹滿核桃的療癒滋味。", use_container_width=True)
-    
+    st.image("548282507_1196129685655556_143484642680713398_n.jpg", caption="手工慢火熬煮焦糖，包裹著靈魂的滋味。", use_container_width=True)
     st.subheader("📝 預約資訊")
     c_name = st.text_input("您的稱呼")
     c_phone = st.text_input("聯絡電話")
-    
-    st.subheader("📍 領取安排")
-    target_date = st.selectbox("選擇梯次", prod_dates)
+    t_date = st.selectbox("選擇製作日期", prod_dates)
     
     # 即時計算庫存
-    next_day = (datetime.strptime(target_date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
-    batch_orders = df_existing[df_existing['面交日期'].isin([target_date, next_day])]
-    used_g = pd.to_numeric(batch_orders['經典數量'], errors='coerce').sum()
-    used_w = pd.to_numeric(batch_orders['核桃數量'], errors='coerce').sum()
-    rem_g, rem_w = int(max(0, max_g - used_g)), int(max(0, max_w - used_w))
+    n_day_calc = (datetime.strptime(t_date, "%Y-%m-%d") + timedelta(days=1)).strftime("%Y-%m-%d")
+    batch_d = df_existing[df_existing['面交日期'].isin([t_date, n_day_calc])]
+    u_g = pd.to_numeric(batch_d['經典數量']).sum()
+    u_w = pd.to_numeric(batch_d['核桃數量']).sum()
+    rem_g, rem_w = int(max(0, max_g - u_g)), int(max(0, max_w - u_w))
 
-    pickup_options = ["2026-02-07 三重 (19:00+)", "2026-02-08 華視 (11:00-17:00)"] if target_date == "2026-02-07" else [f"{target_date} 三重 (19:00+)"]
-    loc_opt = st.selectbox("面交地點", pickup_options)
-    
-    p_time = st.time_input("預計抵達時間", value=time(19, 0) if "三重" in loc_opt else time(12, 0))
+    pickup_opts = ["2026-02-07 三重 (19:00+)", "2026-02-08 華視 (11:00-17:00)"] if t_date == "2026-02-07" else [f"{t_date} 三重 (19:00+)"]
+    loc_opt = st.selectbox("面交安排", pickup_opts)
+    p_time = st.time_input("預計時間", value=time(19, 0) if "三重" in loc_opt else time(12, 0))
     st.markdown('</div>', unsafe_allow_html=True)
 
 with col2:
     st.markdown('<div class="custom-card">', unsafe_allow_html=True)
-    st.subheader("🥐 產能與訂購數量")
+    st.subheader("🥐 產能進度")
+    st.write(f"**蘭姆葡萄** (剩 {rem_g} 盒)")
+    st.progress(min(1.0, u_g / max_g if max_g > 0 else 1))
+    q_g = st.number_input("購買經典款", min_value=0, max_value=rem_g, step=1, key="q_g_13")
     
-    st.write(f"**蘭姆葡萄核桃** (剩餘 {rem_g} 盒)")
-    st.progress(min(1.0, used_g / max_g if max_g > 0 else 1))
-    q_g = st.number_input("訂購經典款", min_value=0, max_value=rem_g, step=1, key="q_g_9")
+    st.write(f"**純焦糖核桃** (剩 {rem_w} 盒)")
+    st.progress(min(1.0, u_w / max_w if max_w > 0 else 1))
+    q_w = st.number_input("購買純核桃 ", min_value=0, max_value=rem_w, step=1, key="q_w_13")
     
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.write(f"**純核桃焦糖** (剩餘 {rem_w} 盒)")
-    st.progress(min(1.0, used_w / max_w if max_w > 0 else 1))
-    q_w = st.number_input("訂購純核桃", min_value=0, max_value=rem_w, step=1, key="q_w_9")
-    
-    total_price = (q_g + q_w) * 190
-    st.markdown(f"### 💰 總額：NT$ {total_price}")
-    
-    st.subheader("💳 支付管道")
-    pay_method = st.radio("付款方式", ["面交支付", "轉帳", "Line Pay"], horizontal=True)
-    pay_info = st.text_input("付款備註 (後五碼等)") if pay_method != "面交支付" else "現場付款"
+    st.markdown(f"### 💰 總額：NT$ {(q_g + q_w) * 190}")
+    pay_method = st.radio("付款管道", ["面交", "轉帳", "Line Pay"], horizontal=True)
+    pay_info = st.text_input("付款資訊 (後五碼等)") if pay_method != "面交" else "現場支付"
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ==================== 6. 提交邏輯 ====================
+# ==================== 5. 提交與 22 張塔羅完整牌組 ====================
 st.divider()
-can_submit = (c_name and c_phone and (q_g + q_w) > 0)
-
-if not can_submit:
-    st.warning("⚠️ 記得填寫姓名電話，並選擇至少一盒肉桂捲喔！")
-    st.button("確認預約", disabled=True)
-else:
-    if st.button("✨ 送出預約，並領取今日療癒指引 ✨"):
+if st.button("✨ 送出預約，並領取今日療癒指引 ✨"):
+    if c_name and c_phone and (q_g + q_w) > 0:
         with st.spinner("打雜小妹洗牌中..."):
-            # 寫入資料庫
             new_row = pd.DataFrame([{
                 "下單時間": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "客戶姓名": c_name, "聯絡電話": c_phone,
                 "面交日期": loc_opt.split(' ')[0], "面交地點": "三重" if "三重" in loc_opt else "華視",
                 "面交時間": p_time.strftime("%H:%M"),
-                "經典數量": q_g, "核桃數量": q_w, "總金額": total_price,
+                "經典數量": q_g, "核桃數量": q_w, "總金額": (q_g + q_w) * 190,
                 "付款方式": pay_method, "付款資訊": pay_info
             }])
             conn.update(worksheet="癒室訂單紀錄", data=pd.concat([df_existing, new_row], ignore_index=True))
             
-            # 塔羅儀式
+            # 完整 22 張大阿爾克那
             tarot_deck = [
-                {"class": "card-sun", "icon": "☀️", "title": "太陽 The Sun", "desc": "溫暖且明亮的能量，這份甜點將為您的明天帶來滿滿元氣！"},
-                {"class": "card-star", "icon": "⭐", "title": "星星 The Star", "desc": "療癒與希望的指引。放下煩惱，享受這一刻的純粹甜美。"},
-                {"class": "card-world", "icon": "🌍", "title": "世界 The World", "desc": "階段性的圓滿達成。給努力生活的您一份應得的獎勵。"}
+                {"e": "air", "i": "🃏", "t": "愚者", "d": "新冒險的開始，打雜小妹為您的熱情鼓掌！"},
+                {"e": "fire", "i": "🪄", "t": "魔術師", "d": "您手握創造生活的權限。"},
+                {"e": "water", "i": "📜", "t": "女教皇", "d": "相信您的直覺，它是最精準的導播。"},
+                {"e": "earth", "i": "👑", "t": "女皇", "d": "享受豐盛的甜點，享受美好的當下。"},
+                {"e": "fire", "i": "🏛️", "t": "皇帝", "d": "掌控節奏，您就是生活的主導者。"},
+                {"e": "earth", "i": "🙏", "t": "教皇", "d": "傳統中藏著智慧，或許能從舊事中得新意。"},
+                {"e": "air", "i": "💞", "t": "戀人", "d": "美好的連結，不論人或物都令人動心。"},
+                {"e": "fire", "i": "🛒", "t": "戰車", "d": "衝勁十足！水星牡羊的您無人能擋。"},
+                {"e": "fire", "i": "🦁", "t": "力量", "d": "溫柔的堅韌，足以平定生活中的喧囂。"},
+                {"e": "earth", "i": "💡", "t": "隱者", "d": "在靜謐中找回自己，配上一顆肉桂捲剛好。"},
+                {"e": "fire", "i": "🎡", "t": "命運之輪", "d": "轉動的契機已至，好運正隨香味而來。"},
+                {"e": "air", "i": "⚖️", "t": "正義", "d": "找回核心的平衡，讓生活重新對焦。"},
+                {"e": "water", "i": "🙃", "t": "倒吊人", "d": "換個視角看世界，難題也變得輕快。"},
+                {"e": "water", "i": "🦋", "t": "死神", "d": "告別舊節奏，迎接新篇章的勇氣。"},
+                {"e": "fire", "i": "🏺", "t": "節制", "d": "完美的混合與融合，平衡就是美。"},
+                {"e": "earth", "i": "😈", "t": "惡魔", "d": "偶爾耽溺於甜點的誘惑是健康的！"},
+                {"e": "fire", "i": "⚡", "t": "高塔", "d": "突破性的改變，是為了迎接更好的藍圖。"},
+                {"e": "air", "i": "⭐", "t": "星星", "d": "希望的星光指引，願望正慢慢熟成。"},
+                {"e": "water", "i": "🌙", "t": "月亮", "d": "擁抱不安，星光終會指引明天的路。"},
+                {"e": "fire", "i": "☀️", "t": "太陽", "d": "充滿活力的明亮，今日是美好的圓滿。"},
+                {"e": "fire", "i": "🎺", "t": "審判", "d": "聽從內心的呼喚，再次啟航。"},
+                {"e": "earth", "i": "🌍", "t": "世界", "d": "圓滿的達成，給辛苦生活的您最好的犒賞。"}
             ]
             drawn = random.choice(tarot_deck)
-            
             st.balloons()
-            st.success("✅ 預約成功！打雜小妹已將您的需求排入製作清單。")
-            st.markdown(f"""
-            <div class="tarot-container">
-                <div class="tarot-card {drawn['class']}">
-                    <div class="tarot-icon">{drawn['icon']}</div>
-                    <div class="tarot-title">{drawn['title']}</div>
-                    <div class="tarot-desc">{drawn['desc']}</div>
-                    <div style="margin-top:15px; font-size:0.85em; color:#A67B5B;">— 打雜小妹親筆祝福</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.success("✅ 預約成功！請領取今日指引：")
+            pytime.sleep(0.5)
+            st.markdown(f"<div class='tarot-container'><div class='tarot-card {drawn['e']}'><div class='tarot-icon'>{drawn['i']}</div><h3>{drawn['t']}</h3><p>{drawn['d']}</p><small>— 打雜小妹親筆指引</small></div></div>", unsafe_allow_html=True)
+    else:
+        st.warning("⚠️ 姓名電話或數量都要填好喔！")
